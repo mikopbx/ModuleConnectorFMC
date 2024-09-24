@@ -1,0 +1,33 @@
+[globals]
+[general]
+[incoming]
+exten => _.!,1,Dial(PJSIP/${EXTEN}@${CALLERID(num)},600,Tt)
+exten => _[hit],1,Hangup()
+exten => 203,1,Goto(incoming-to-sip2,${EXTEN},1)
+exten => 201,1,Goto(incoming-to-sip2,${EXTEN},1)
+
+[incoming-to-sip2]
+exten => _X!,1,Set(_SRC_CHAN=${CHANNEL})
+    same => n,Set(_SRC_CID=${CALLERID(num)})
+    same => n,Set(_SRC_DST=${EXTEN})
+    same => n,Dial(PJSIP/${EXTEN}@sip2,,f(${SRC_CID} <sip2>)Ttb(create-dst-chan,${SRC_DST},1)G(orig-call^${SRC_CID}^1))
+
+[orig-call]
+exten => _X!,1,Goto(orig-src-chan,${EXTEN},1)
+exten => _X!,2,Goto(orig-dst-chan,${EXTEN},1)
+[create-dst-chan]
+exten => _X!,1,Set(EXPORT(${SRC_CHAN},DST_CHAN)=${CHANNEL})
+    same => n,Set(DST_CHAN=${CHANNEL})
+    same => n,return
+[orig-src-chan]
+exten => _X!,1,NoOp(is SRC chan, DST_CHAN: ${DST_CHAN}, id=${CHANNEL(linkedid)}, SRC_CID=${SRC_CID})
+    same => n,Wait(600)
+exten => h,1,AGI(/storage/usbdisk1/mikopbx/custom_modules/ModuleConnectorFMC/agi-bin/hangup.php,${DST_CHAN})
+[orig-dst-chan]
+exten => _X!,1,NoOp(is DST chan, SRC_CHAN: ${SRC_CHAN}, id=${CHANNEL(linkedid)}, SRC_CID=${SRC_CID}, SRC_DST=${SRC_DST})
+    same => n,AGI(/storage/usbdisk1/mikopbx/custom_modules/ModuleConnectorFMC/agi-bin/save-state.php)
+    same => n,Wait(600)
+exten => h,1,AGI(/storage/usbdisk1/mikopbx/custom_modules/ModuleConnectorFMC/agi-bin/hangup.php,${SRC_CHAN})
+[orig-src-bridge]
+exten => s,1,Answer()
+    same => n,Bridge(${IF($["${CHANNEL}" == "${DST_CHAN}"]?${SRC_CHAN}:${DST_CHAN})},Tt)
