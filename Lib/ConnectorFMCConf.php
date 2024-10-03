@@ -19,7 +19,7 @@ use MikoPBX\Modules\Config\ConfigClass;
 use Modules\ModuleConnectorFMC\Lib\RestAPI\Controllers\ApiController;
 use Modules\ModuleConnectorFMC\Models\ModuleConnectorFMC;
 use Modules\ModuleConnectorFMC\Models\TrunksFMC;
-use Phalcon\Di;
+
 
 class ConnectorFMCConf extends ConfigClass
 {
@@ -173,7 +173,7 @@ class ConnectorFMCConf extends ConfigClass
      */
     public static function rotatePbxLog(string $fileName = 'full'): void
     {
-        $di           = Di::getDefault();
+        $di           = MikoPBXVersion::getDefaultDi();
         $asteriskPath = Util::which('asterisk');
         if ($di === null) {
             return;
