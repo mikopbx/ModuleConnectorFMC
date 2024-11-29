@@ -18,6 +18,7 @@
  */
 
 namespace Modules\ModuleConnectorFMC\Lib;
+use MikoPBX\Common\Models\Extensions;
 use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\Common\Models\PbxSettingsConstants;
 use MikoPBX\Common\Models\Sip;
@@ -26,6 +27,7 @@ use MikoPBX\Core\System\Processes;
 use Modules\ModuleConnectorFMC\Models\ModuleConnectorFMC;
 use Modules\ModuleConnectorFMC\Models\TrunksFMC;
 use MikoPBX\Modules\PbxExtensionUtils;
+use Phalcon\Mvc\Model\Manager;
 use Phalcon\Mvc\Model\Row;
 
 class ConfigureAsterisk
@@ -59,7 +61,7 @@ class ConfigureAsterisk
         $this->asteriskConfPath    = "$this->dirName/asterisk/asterisk.conf";
         $this->cmdAsterisk = Util::which('asterisk');
         $this->sipPort  = PbxSettings::getValueByKey(PbxSettingsConstants::SIP_PORT);
-        $this->providers= TrunksFMC::find(['columns' => 'incomingEndpointHost AS host,incomingEndpointPort AS port,incomingEndpointSecret AS secret,incomingEndpointLogin AS endpoint,extensions,useDelayedResponse'])->toArray();
+        $this->providers= TrunksFMC::find(['columns' => 'incomingEndpointHost AS host,incomingEndpointPort AS port,incomingEndpointSecret AS secret,incomingEndpointLogin AS endpoint,extensions,providerType'])->toArray();
     }
 
     public function makeConfig($action):void
@@ -118,35 +120,70 @@ class ConfigureAsterisk
     private function makeExtensions():void
     {
         $extensionsConfAdditional = '';
+        $userExtensions = '';
         $extensionsConf = "[globals]".PHP_EOL;
         $extensionsConf.= "[general]".PHP_EOL;
         $extensionsConf.= "[incoming]".PHP_EOL;
-        $extensionsConf.='exten => _.!,1,Dial(PJSIP/${EXTEN}@${CALLERID(num)},600,Tt)'.PHP_EOL;
         $extensionsConf.='exten => _[hit],1,Hangup()'.PHP_EOL;
+        $extensionsConf.='exten => _.!,1,Dial(PJSIP/${EXTEN}@${CALLERID(num)},600,Tt)'.PHP_EOL;
+        $extensionsConf.='exten => _.!,2,Hangup()'.PHP_EOL.PHP_EOL;
+
         foreach ($this->providers as $provider){
-            $filterSip = [
-                "type = 'peer' AND disabled <> '1' AND extension IN ({extension:array}) ",
-                'columns' => 'extension,secret',
-                'order' => 'extension',
-                'bind' => [
-                    'extension' => explode(',',$provider['extensions'])
-                ]
-            ];
-            $peers = Sip::find($filterSip);
-            foreach ($peers as $peer){
-                if($provider['useDelayedResponse'] === '1'){
+            if(intval($provider['providerType']) === TrunksFMC::PROVIDER_TYPE_B24){
+                $filterSip = [
+                    "type = 'peer' AND disabled <> '1' AND extension IN ({extension:array}) ",
+                    'columns' => 'extension,secret',
+                    'order' => 'extension',
+                    'bind' => [
+                        'extension' => explode(',',$provider['extensions'])
+                    ]
+                ];
+                $peers = Sip::find($filterSip);
+                foreach ($peers as $peer){
                     $extensionsConf.= 'exten => '.$peer->extension.',1,Goto(incoming-to-'.$provider['endpoint'].',${EXTEN},1)'.PHP_EOL;
-                }else{
-                     $extensionsConf.= 'exten => '.$peer->extension.',1,Dial(PJSIP/${EXTEN}@'.$provider['endpoint'].',,f(${CALLERID(num)} <'.$provider['endpoint'].'>)Tt)'.PHP_EOL;
+                    // $extensionsConf.= 'exten => '.$peer->extension.',1,Dial(PJSIP/${EXTEN}@'.$provider['endpoint'].',,f(${CALLERID(num)} <'.$provider['endpoint'].'>)Tt)'.PHP_EOL;
                 }
+                $extensionsConfAdditional.= PHP_EOL.'[incoming-to-'.$provider['endpoint'].']' . PHP_EOL .
+                    'exten => _X!,1,Ringing()' . PHP_EOL .
+                    '    same => n,Set(_SRC_CHAN=${CHANNEL})' . PHP_EOL .
+                    '    same => n,Set(_SRC_CID=${CALLERID(num)})' . PHP_EOL .
+                    '    same => n,Set(_SRC_DST=${EXTEN})' . PHP_EOL .
+                    '    same => n,Dial(PJSIP/${EXTEN}@'.$provider['endpoint'].',,f(${SRC_CID} <'.$provider['endpoint'].'>)Ttb(create-dst-chan,${SRC_DST},1)G(orig-call^${SRC_CID}^1))' . PHP_EOL;
+            }elseif (intval($provider['providerType']) === TrunksFMC::PROVIDER_TYPE_MCN){
+                $sipPort= PbxSettings::getValueByKey('SIPPort');
+
+                $extensionData = ConfigureAsterisk::getPbxNumbers();
+                $userExtensions.= '[users-extensions-'.$provider['endpoint'].']'.PHP_EOL;
+                foreach ($extensionData as $number => $mobile){
+                    $shotMobile = substr($mobile, -10);
+                    $extensionsConf.= "; For exten: $number mobile: $mobile".PHP_EOL;
+                    $extensionsConf.= "exten => _X!/_X".$shotMobile.",1,Dial(PJSIP/\${EXTEN}@$number,600,Tt)".PHP_EOL;
+                    $extensionsConf.= "exten => _X".$shotMobile.",1,Dial(PJSIP/{$provider['endpoint']}/sip:$number@127.0.0.1:$sipPort,600,Tt)".PHP_EOL;
+                    $extensionsConf.= "exten => $number,1,Goto(dial-to-fmc-".$provider['endpoint'].",\${EXTEN},1)".PHP_EOL.PHP_EOL;
+
+                    $userExtensions.= "exten => $number,1,Set(MOBILE=$mobile)".PHP_EOL;
+                }
+                $userExtensions.= 'exten => _X!,2,return'.PHP_EOL.PHP_EOL;
+
+                $extensionsConf .= '[dial-to-fmc-'.$provider['endpoint'].']'.PHP_EOL;
+                $extensionsConf .= 'exten => _XX!,1,Progress()'.PHP_EOL;
+                $extensionsConf .= '    same => n,GosubIf($["${DIALPLAN_EXISTS(users-extensions-'.$provider['endpoint'].',${EXTEN},1)}" == "1"]?users-extensions-'.$provider['endpoint'].',${EXTEN},1)'.PHP_EOL;
+                $extensionsConf .= '    same => n,ExecIf($["${MOBILE}x" = "x"]?hangup)'.PHP_EOL;
+                $extensionsConf .= '    same => n,Playback(silence/1,noanswer)'.PHP_EOL;
+                $extensionsConf .= '    same => n,Dial(PJSIP/${MOBILE}@'.$provider['endpoint'].',,f(${CALLERID(num)} <${CALLERID(num)}\;cpc=MT_FMC>)rTtb(create_chan_set_diversion-'.$provider['endpoint'].',s,1)U(dial_answer))'.PHP_EOL;
+                $extensionsConf .= '    same => n,hangup()'.PHP_EOL;
+                $extensionsConf .= PHP_EOL;
+                $extensionsConf .= '[create_chan_set_diversion-'.$provider['endpoint'].']'.PHP_EOL;
+                $extensionsConf .= 'exten => s,1,NoOp(start set diversion)'.PHP_EOL;
+                $extensionsConf .= '    same => n,Set(PJSIP_HEADER(add,Diversion)=<sip:${MOBILE}@'.$provider['host'].'>\;reason=no-answer)'.PHP_EOL;
+                $extensionsConf .= '    same => n,return'.PHP_EOL.PHP_EOL;
             }
-            $extensionsConfAdditional.= PHP_EOL.'[incoming-to-'.$provider['endpoint'].']' . PHP_EOL .
-                'exten => _X!,1,Ringing()' . PHP_EOL .
-                '    same => n,Set(_SRC_CHAN=${CHANNEL})' . PHP_EOL .
-                '    same => n,Set(_SRC_CID=${CALLERID(num)})' . PHP_EOL .
-                '    same => n,Set(_SRC_DST=${EXTEN})' . PHP_EOL .
-                '    same => n,Dial(PJSIP/${EXTEN}@'.$provider['endpoint'].',,f(${SRC_CID} <'.$provider['endpoint'].'>)Ttb(create-dst-chan,${SRC_DST},1)G(orig-call^${SRC_CID}^1))' . PHP_EOL;
         }
+
+        $extensionsConf.=$userExtensions;
+        $extensionsConf .= '[dial_answer]'.PHP_EOL;
+        $extensionsConf .= 'exten => s,1,Playback(beep)'.PHP_EOL;
+        $extensionsConf .= '    same => n,return'.PHP_EOL.PHP_EOL;
 
         $extensionsConf.=$extensionsConfAdditional;
         $extensionsConf.=
@@ -177,6 +214,41 @@ class ConfigureAsterisk
             'exten => h,1,AGI('.$this->agiDir.'/hangup.php)' . PHP_EOL ;
 
         $this->configFileData[self::EXTENSIONS_CONF_NAME] = $extensionsConf;
+    }
+
+    public static function getPbxNumbers():array
+    {
+        $pbx_numbers = [];
+        $di = MikoPBXVersion::getDefaultDi();
+        /** @var Manager $manager */
+        $manager = $di->get('modelsManager');
+        $parameters = [
+            'models'     => [
+                'ExtensionsSip' => Extensions::class,
+            ],
+            'conditions' => 'ExtensionsSip.type = :typeSip:',
+            'bind'                => ['typeSip' => Extensions::TYPE_SIP,'typeExternal' => Extensions::TYPE_EXTERNAL],
+            'columns'    => [
+                'number'         => 'ExtensionsSip.number',
+                'mobile'         => 'ExtensionsExternal.number',
+                'userid'         => 'ExtensionsSip.userid',
+            ],
+            'order'      => 'number',
+            'joins'      => [
+                'ExtensionsExternal' => [
+                    0 => Extensions::class,
+                    1 => 'ExtensionsSip.userid = ExtensionsExternal.userid AND ExtensionsExternal.type = :typeExternal:',
+                    2 => 'ExtensionsExternal',
+                    3 => 'INNER',
+                ],
+            ],
+        ];
+        $query  = $manager->createBuilder($parameters)->getQuery();
+        $result = $query->execute()->toArray();
+        foreach ($result as $data){
+            $pbx_numbers[$data['number']] = $data['mobile'];
+        }
+        return $pbx_numbers;
     }
 
     private function makeAstConf():void

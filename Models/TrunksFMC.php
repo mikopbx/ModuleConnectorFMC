@@ -12,6 +12,9 @@ use MikoPBX\Modules\Models\ModulesModelsBase;
 
 class TrunksFMC extends ModulesModelsBase
 {
+    public const PROVIDER_TYPE_B24 = 0;
+    public const PROVIDER_TYPE_MCN = 1;
+
     /**
      * @Primary
      * @Identity
@@ -55,6 +58,11 @@ class TrunksFMC extends ModulesModelsBase
      * @Column(type="integer", default="1", nullable=true)
      */
     public $useDelayedResponse = '1';
+
+    /**
+     * @Column(type="integer", default="0", nullable=true)
+     */
+    public $providerType = 0;
 
     /**
      * @param $calledModelObject

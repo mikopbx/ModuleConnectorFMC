@@ -20,6 +20,7 @@
 
 namespace Modules\ModuleConnectorFMC\App\Forms;
 
+use Modules\ModuleConnectorFMC\Models\TrunksFMC;
 use Phalcon\Forms\Form;
 use Phalcon\Forms\Element\Text;
 use Phalcon\Forms\Element\Password;
@@ -37,12 +38,33 @@ class ModuleConnectorFMCForm extends Form
         $this->add(new Text('rtpPortStart'));
         $this->add(new Text('rtpPortEnd'));
         $this->add(new Text('amiPort'));
+
+        $arrLibraryType = [
+            TrunksFMC::PROVIDER_TYPE_B24 => $this->translation->_('module_connectorfmc_PROVIDER_TYPE_B24'),
+            TrunksFMC::PROVIDER_TYPE_MCN => $this->translation->_('module_connectorfmc_PROVIDER_TYPE_MCN'),
+        ];
+
         foreach ($options as $key => $value) {
             if ($key === 'id') {
                 continue;
             }
             if ($key === 'extensions') {
                 $this->add(new Hidden($key, ['value' => $value]));
+            } elseif ($key === 'providerType') {
+                $providerType = new Select(
+                    'providerType',
+                    $arrLibraryType,
+                    [
+                        'using'    => [
+                            'id',
+                            'name',
+                        ],
+                        'useEmpty' => false,
+                        'value'    => $value,
+                        'class'    => 'ui selection dropdown',
+                    ]
+                );
+                $this->add($providerType);
             } elseif ($key === 'useDelayedResponse') {
                 $this->addCheckBox($key, intval($value) === 1);
             } elseif ($key === 'incomingEndpointSecret') {

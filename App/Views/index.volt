@@ -46,17 +46,15 @@
           </div>
         </div>
     </div>
-    <div class="ui toggle checkbox">
-        <label for="useDelayedResponse">{{ t._('module_connectorfmc_useDelayedResponse') }}</label>
-        {{ form.render('useDelayedResponse') }}
-        <br>
-    </div>
     <div class="field">
         <label >{{ t._('module_connectorfmc_extensions') }}</label>
         {{ form.render('extensions') }}
         {{ form.render('peers') }}
     </div>
-
+    <div class="ten wide field">
+        <label>{{ t._('module_connectorfmc_providerType') }}</label>
+        {{ form.render('providerType') }}
+    </div>
     <br>
     <div class="ui styled fluid accordion">
       <div class="title">

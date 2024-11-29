@@ -9,12 +9,10 @@
 namespace Modules\ModuleConnectorFMC\Models;
 
 use MikoPBX\Common\Handlers\CriticalErrorsHandler;
-use MikoPBX\Common\Models\ModelsBase;
 use MikoPBX\Modules\Models\ModulesModelsBase;
 
 class ModuleConnectorFMC extends ModulesModelsBase
 {
-
     /**
      * @Primary
      * @Identity
@@ -72,13 +70,7 @@ class ModuleConnectorFMC extends ModulesModelsBase
     public static function getValueByKey(string $key): string
     {
         try {
-            $parameters = [
-                'cache' => [
-                    'key' => ModelsBase::makeCacheKey(self::class, 'getValueByKey'),
-                    'lifetime' => 10,
-                ],
-            ];
-            $currentSettings = parent::findFirst($parameters)->toArray();
+            $currentSettings = parent::findFirst()->toArray();
             return trim($currentSettings[$key]??'');
         } catch (\Throwable $e) {
             CriticalErrorsHandler::handleException($e);

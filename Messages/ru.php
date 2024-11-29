@@ -39,4 +39,7 @@ return [
     'module_connectorfmc_rtpPortEndIsEmpty'   => 'Конечный порт RTP должен быть в диапазоне 40000..65000.',
     'module_connectorfmc_sipPortIsEmpty'   => 'Порт SIP должен быть в диапазоне 5160..65000.',
     'module_connectorfmc_amiPortIsEmpty'   => 'Порт AMI должен быть в диапазоне 55000..60000.',
+    'module_connectorfmc_PROVIDER_TYPE_B24'   => 'Bitrix24 SIP connector',
+    'module_connectorfmc_PROVIDER_TYPE_MCN'   => 'MCN',
+    'module_connectorfmc_providerType'   => 'Провайдер FMC',
 ];

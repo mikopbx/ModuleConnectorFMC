@@ -61,15 +61,31 @@ class ConnectorFMCConf extends ConfigClass
         if(!$settings){
             return '';
         }
-        $trunks = TrunksFMC::find(['columns' => 'outputEndpoint AS id'])->toArray();
+        $trunks = TrunksFMC::find(['columns' => 'outputEndpoint AS id,providerType'])->toArray();
         foreach ($trunks as $trunk){
-            $conf.= '['.$trunk['id'].'-incoming]'.PHP_EOL.
-                    'exten => _.!,1,NoOp()'.PHP_EOL.
-                    '    same => n,Set(callId=${PJSIP_HEADER(read,X-Extension-Number)})'.PHP_EOL.
-                    '    same => n,Set(CALLERID(num)=${callId})'.PHP_EOL.
-                    '    same => n,Set(CALLERID(name)=${callId})'.PHP_EOL.
-                    '    same => n,Dial(PJSIP/'.$trunk['id'].'/sip:${EXTEN}@127.0.0.1:'.$settings->sipPort.',,f(${callId} <${callId}>))'.PHP_EOL.
-                    'exten => _[hit],1,Hangup()';
+            if(intval($trunk['providerType']) === TrunksFMC::PROVIDER_TYPE_B24){
+                $conf.= '['.$trunk['id'].'-incoming]'.PHP_EOL.
+                        'exten => _.!,1,NoOp()'.PHP_EOL.
+                        '    same => n,Set(callId=${PJSIP_HEADER(read,X-Extension-Number)})'.PHP_EOL.
+                        '    same => n,Set(CALLERID(num)=${callId})'.PHP_EOL.
+                        '    same => n,Set(CALLERID(name)=${callId})'.PHP_EOL.
+                        '    same => n,Dial(PJSIP/'.$trunk['id'].'/sip:${EXTEN}@127.0.0.1:'.$settings->sipPort.',,f(${callId} <${callId}>))'.PHP_EOL.
+                        'exten => _[hit],1,Hangup()';
+            }elseif (intval($trunk['providerType']) === TrunksFMC::PROVIDER_TYPE_MCN) {
+                $conf .= '['.$trunk['id'].'-incoming]'.PHP_EOL;
+                $conf .= 'exten => _X!,1,NoOp(--- Incoming call ---)'.PHP_EOL;
+                $conf .= '    same => n,Set(CHANNEL(language)=ru-ru)'.PHP_EOL;
+                $conf .= '    same => n,Set(CHANNEL(hangup_handler_wipe)=hangup_handler,s,1)'.PHP_EOL;
+                $conf .= '    same => n,Set(__FROM_DID=${EXTEN})'.PHP_EOL;
+                $conf .= '    same => n,Set(__FROM_CHAN=${CHANNEL})'.PHP_EOL;
+                $conf .= '    same => n,Set(__M_CALLID=${CHANNEL(callid)})'.PHP_EOL;
+                $conf .= '    same => n,Set(__TRANSFER_OPTIONS=t)'.PHP_EOL;
+                $conf .= '    same => n,Set(M_TIMEOUT=600)'.PHP_EOL;
+                $conf .= '    same => n,Progress()'.PHP_EOL;
+                $conf .= '    same => n,Playback(silence/1,noanswer)'.PHP_EOL;
+                $conf .= '    same => n,Dial(Local/did2user@internal-incoming,600,${TRANSFER_OPTIONS}Kg)'.PHP_EOL;
+                $conf .= '    same => n,Hangup()'.PHP_EOL;
+            }
         }
         return $conf;
     }
@@ -82,47 +98,95 @@ class ConnectorFMCConf extends ConfigClass
      */
     public function generatePeersPj(): string
     {
-        $trunks = TrunksFMC::find(['columns' => 'outputEndpoint AS id,outputEndpointSecret AS pass'])->toArray();
+        $settings = ModuleConnectorFMC::findFirst(['columns' => 'sipPort']);
+        if(!$settings){
+            return '';
+        }
+        $trunks = TrunksFMC::find(['columns' => 'outputEndpoint AS id,outputEndpointSecret AS pass,providerType'])->toArray();
         $config = '';
         foreach ($trunks as $trunk) {
-            $config.= "[".$trunk['id']."-AUTH]" . PHP_EOL .
-                "type = auth" . PHP_EOL .
-                "username = ".$trunk['id'] . PHP_EOL .
-                "password = ".$trunk['pass'] . PHP_EOL . PHP_EOL .
+            if(intval($trunk['providerType']) === TrunksFMC::PROVIDER_TYPE_B24){
 
-                "[".$trunk['id']."]" . PHP_EOL .
-                "type = aor" . PHP_EOL .
-                "max_contacts = 5" . PHP_EOL .
-                "maximum_expiration = 3600" . PHP_EOL .
-                "minimum_expiration = 60" . PHP_EOL .
-                "default_expiration = 120" . PHP_EOL .
-                "qualify_frequency = 60" . PHP_EOL .
-                "qualify_timeout = 3.0" . PHP_EOL . PHP_EOL .
+                $config.= "[".$trunk['id']."-AUTH]" . PHP_EOL .
+                    "type = auth" . PHP_EOL .
+                    "username = ".$trunk['id'] . PHP_EOL .
+                    "password = ".$trunk['pass'] . PHP_EOL . PHP_EOL .
 
-                "[".$trunk['id']."]" . PHP_EOL .
-                "type = endpoint" . PHP_EOL .
-                "100rel = no" . PHP_EOL .
-                "context = ".$trunk['id']."-incoming" . PHP_EOL .
-                "dtmf_mode = auto" . PHP_EOL .
-                "disallow = all" . PHP_EOL .
-                "allow = opus" . PHP_EOL .
-                "allow = alaw" . PHP_EOL .
-                "allow = h264" . PHP_EOL .
-                "rtp_symmetric = yes" . PHP_EOL .
-                "force_rport = yes" . PHP_EOL .
-                "rewrite_contact = yes" . PHP_EOL .
-                "ice_support = no" . PHP_EOL .
-                "direct_media = no" . PHP_EOL .
-                "contact_user = ".$trunk['id']. PHP_EOL .
-                "sdp_session = mikopbx" . PHP_EOL .
-                "language = ru-ru" . PHP_EOL .
-                "aors = ".$trunk['id'] . PHP_EOL .
-                "timers = no" . PHP_EOL .
-                "rtp_timeout = 30" . PHP_EOL .
-                "rtp_timeout_hold = 30" . PHP_EOL .
-                "auth = ".$trunk['id']."-AUTH" . PHP_EOL .
-                "inband_progress = yes" . PHP_EOL .
-                "tone_zone = ru" . PHP_EOL;
+                    "[".$trunk['id']."]" . PHP_EOL .
+                    "type = aor" . PHP_EOL .
+                    "max_contacts = 5" . PHP_EOL .
+                    "maximum_expiration = 3600" . PHP_EOL .
+                    "minimum_expiration = 60" . PHP_EOL .
+                    "default_expiration = 120" . PHP_EOL .
+                    "qualify_frequency = 60" . PHP_EOL .
+                    "qualify_timeout = 3.0" . PHP_EOL . PHP_EOL .
+
+                    "[".$trunk['id']."]" . PHP_EOL .
+                    "type = endpoint" . PHP_EOL .
+                    "100rel = no" . PHP_EOL .
+                    "context = ".$trunk['id']."-incoming" . PHP_EOL .
+                    "dtmf_mode = auto" . PHP_EOL .
+                    "disallow = all" . PHP_EOL .
+                    "allow = opus" . PHP_EOL .
+                    "allow = alaw" . PHP_EOL .
+                    "allow = h264" . PHP_EOL .
+                    "rtp_symmetric = yes" . PHP_EOL .
+                    "force_rport = yes" . PHP_EOL .
+                    "rewrite_contact = yes" . PHP_EOL .
+                    "ice_support = no" . PHP_EOL .
+                    "direct_media = no" . PHP_EOL .
+                    "contact_user = ".$trunk['id']. PHP_EOL .
+                    "sdp_session = mikopbx" . PHP_EOL .
+                    "language = ru-ru" . PHP_EOL .
+                    "aors = ".$trunk['id'] . PHP_EOL .
+                    "timers = no" . PHP_EOL .
+                    "rtp_timeout = 30" . PHP_EOL .
+                    "rtp_timeout_hold = 30" . PHP_EOL .
+                    "auth = ".$trunk['id']."-AUTH" . PHP_EOL .
+                    "inband_progress = yes" . PHP_EOL .
+                    "tone_zone = ru" . PHP_EOL;
+            }elseif (intval($trunk['providerType']) === TrunksFMC::PROVIDER_TYPE_MCN) {
+                $config .= "[".$trunk['id']."]" . PHP_EOL;
+                $config .= 'type = identify' . PHP_EOL;
+                $config .= 'endpoint = '.$trunk['id'] . PHP_EOL;
+                $config .= 'match = 127.0.0.1:'.$settings->sipPort . PHP_EOL;
+                $config .= PHP_EOL;
+
+                $config .= "[".$trunk['id']."]" . PHP_EOL;
+                $config .= 'type = aor' . PHP_EOL;
+                $config .= 'max_contacts = 1' . PHP_EOL;
+                $config .= 'maximum_expiration = 3600' . PHP_EOL;
+                $config .= 'minimum_expiration = 60' . PHP_EOL;
+                $config .= 'default_expiration = 120' . PHP_EOL;
+                $config .= 'contact = sip:127.0.0.1:'.$settings->sipPort . PHP_EOL;
+                $config .= 'qualify_frequency = 60' . PHP_EOL;
+                $config .= 'qualify_timeout = 3.0' . PHP_EOL;
+                $config .= PHP_EOL;
+
+                $config .= "[".$trunk['id']."]" . PHP_EOL;
+                $config .= 'type = endpoint' . PHP_EOL;
+                $config .= '100rel = no' . PHP_EOL;
+                $config .= "context = ".$trunk['id']."-incoming" . PHP_EOL;
+                $config .= 'dtmf_mode = auto' . PHP_EOL;
+                $config .= 'disallow = all' . PHP_EOL;
+                $config .= 'allow = alaw' . PHP_EOL;
+                $config .= 'rtp_symmetric = yes' . PHP_EOL;
+                $config .= 'force_rport = yes' . PHP_EOL;
+                $config .= 'rewrite_contact = yes' . PHP_EOL;
+                $config .= 'ice_support = no' . PHP_EOL;
+                $config .= 'direct_media = no' . PHP_EOL;
+                $config .= 'from_user = ; username' . PHP_EOL;
+                $config .= 'from_domain = 127.0.0.1' . PHP_EOL;
+                $config .= 'contact_user = ; username' . PHP_EOL;
+                $config .= 'sdp_session = mikopbx' . PHP_EOL;
+                $config .= 'language = ru-ru' . PHP_EOL;
+                $config .= "aors = ".$trunk['id'] . PHP_EOL;
+                $config .= 'timers = no' . PHP_EOL;
+                $config .= 'rtp_timeout = 30' . PHP_EOL;
+                $config .= 'rtp_timeout_hold = 30' . PHP_EOL;
+                $config .= 'inband_progress = yes' . PHP_EOL;
+                $config .= 'tone_zone = ru' . PHP_EOL;
+            }
         }
         return $config;
     }
