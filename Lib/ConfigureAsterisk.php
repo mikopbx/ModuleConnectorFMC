@@ -161,7 +161,7 @@ class ConfigureAsterisk
                     $extensionsConf.= "exten => _X".$shotMobile.",1,Dial(PJSIP/{$provider['endpoint']}/sip:$number@127.0.0.1:$sipPort,600,Tt)".PHP_EOL;
                     $extensionsConf.= "exten => $number,1,Goto(dial-to-fmc-".$provider['endpoint'].",\${EXTEN},1)".PHP_EOL.PHP_EOL;
 
-                    $userExtensions.= "exten => $number,1,Set(MOBILE=$mobile)".PHP_EOL;
+                    $userExtensions.= "exten => $number,1,Set(__MOBILE=$mobile)".PHP_EOL;
                 }
                 $userExtensions.= 'exten => _X!,2,return'.PHP_EOL.PHP_EOL;
 

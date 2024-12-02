@@ -106,7 +106,6 @@ class ConnectorFMCConf extends ConfigClass
         $config = '';
         foreach ($trunks as $trunk) {
             if(intval($trunk['providerType']) === TrunksFMC::PROVIDER_TYPE_B24){
-
                 $config.= "[".$trunk['id']."-AUTH]" . PHP_EOL .
                     "type = auth" . PHP_EOL .
                     "username = ".$trunk['id'] . PHP_EOL .
@@ -149,6 +148,7 @@ class ConnectorFMCConf extends ConfigClass
                 $config .= "[".$trunk['id']."]" . PHP_EOL;
                 $config .= 'type = identify' . PHP_EOL;
                 $config .= 'endpoint = '.$trunk['id'] . PHP_EOL;
+                // $config .= 'match = 127.0.0.1'. PHP_EOL;
                 $config .= 'match = 127.0.0.1:'.$settings->sipPort . PHP_EOL;
                 $config .= PHP_EOL;
 
