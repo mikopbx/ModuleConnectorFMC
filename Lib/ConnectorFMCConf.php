@@ -8,6 +8,7 @@
 
 namespace Modules\ModuleConnectorFMC\Lib;
 
+use MikoPBX\Common\Models\ExternalPhones;
 use MikoPBX\Common\Models\PbxSettings;
 use MikoPBX\Common\Models\PbxSettingsConstants;
 use MikoPBX\Common\Models\Sip;
@@ -35,7 +36,7 @@ class ConnectorFMCConf extends ConfigClass
         $phpPath    = Util::which('php');
         if ( $data['model'] === PbxSettings::class && $data['recordId'] === PbxSettingsConstants::SIP_PORT ) {
             shell_exec("$phpPath -f $scriptPath");
-        }elseif ( $data['model'] === Sip::class ) {
+        }elseif ( $data['model'] === Sip::class || $data['model'] ===  ExternalPhones::class) {
             shell_exec("$phpPath -f $scriptPath");
         }elseif ( $data['model'] === ModuleConnectorFMC::class && in_array($data['recordId'],['rtpPortStart', 'sipPort', 'rtpPortEnd'], true)) {
             shell_exec("$phpPath -f $scriptPath restart");

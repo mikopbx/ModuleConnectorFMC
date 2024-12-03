@@ -170,7 +170,9 @@ class ConfigureAsterisk
                 $extensionsConf .= '    same => n,GosubIf($["${DIALPLAN_EXISTS(users-extensions-'.$provider['endpoint'].',${EXTEN},1)}" == "1"]?users-extensions-'.$provider['endpoint'].',${EXTEN},1)'.PHP_EOL;
                 $extensionsConf .= '    same => n,ExecIf($["${MOBILE}x" = "x"]?hangup)'.PHP_EOL;
                 $extensionsConf .= '    same => n,Playback(silence/1,noanswer)'.PHP_EOL;
-                $extensionsConf .= '    same => n,Dial(PJSIP/${MOBILE}@'.$provider['endpoint'].',,f(${CALLERID(num)} <${CALLERID(num)}\;cpc=MT_FMC>)rTtb(create_chan_set_diversion-'.$provider['endpoint'].',s,1)U(dial_answer))'.PHP_EOL;
+                $extensionsConf .= '    same => n,Set(TMP_CID=${CALLERID(num))'.PHP_EOL;
+                $extensionsConf .= '    same => n,ExecIf($[${LEN(${TMP_CID})} < 5]?Set(TMP_CID=${MOBILE}*B${TMP_CID}))  '.PHP_EOL;
+                $extensionsConf .= '    same => n,Dial(PJSIP/${MOBILE}@'.$provider['endpoint'].',,f(${TMP_CID} <${TMP_CID}\;cpc=MT_FMC>)rTtb(create_chan_set_diversion-'.$provider['endpoint'].',s,1)U(dial_answer))'.PHP_EOL;
                 $extensionsConf .= '    same => n,hangup()'.PHP_EOL;
                 $extensionsConf .= PHP_EOL;
                 $extensionsConf .= '[create_chan_set_diversion-'.$provider['endpoint'].']'.PHP_EOL;
