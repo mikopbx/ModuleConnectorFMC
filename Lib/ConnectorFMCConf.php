@@ -260,7 +260,7 @@ class ConnectorFMCConf extends ConfigClass
     endscript
 }";
         $varEtcDir  = $di->getShared('config')->path('core.varEtcDir');
-        $path_conf   = $varEtcDir . '/asterisk_logrotate_' . $fileName . '.conf';
+        $path_conf   = $varEtcDir . '/ModuleConnectorFMC_' . $fileName . '.conf';
         file_put_contents($path_conf, $text_config);
         $mb10 = $max_size * 1024 * 1024;
 
