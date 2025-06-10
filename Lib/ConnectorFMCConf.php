@@ -279,6 +279,7 @@ class ConnectorFMCConf extends ConfigClass
     {
         $phpPath    = Util::which('php');
         $tasks[]    = "0 1 * * * $phpPath $this->moduleDir/bin/rotate-logs.php > /dev/null 2>&1".PHP_EOL;
+        $tasks[]    = "*/1 * * * * $phpPath $this->moduleDir/bin/init-asterisk.php > /dev/null 2>&1".PHP_EOL;
     }
 
     /**

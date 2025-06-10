@@ -18,7 +18,16 @@
  */
 
 use Modules\ModuleConnectorFMC\Lib\ConfigureAsterisk;
+use MikoPBX\Core\System\Processes;
 require_once 'Globals.php';
+
+$title = 'init-fmc-asterisk';
+$pid = Processes::getPidOfProcess($title);
+if(!empty($pid)){
+    echo "Process exista $pid";
+    exit(1);
+}
+cli_set_process_title('init-fmc-asterisk');
 
 $config = new ConfigureAsterisk();
 $config->makeConfig($argv[1]??'');
