@@ -85,7 +85,14 @@ class ConnectorFMCConf extends ConfigClass
                 $conf .= '    same => n,Progress()'.PHP_EOL;
                 $conf .= '    same => n,Playback(silence/1,noanswer)'.PHP_EOL;
                 $conf .= '    same => n,Dial(Local/did2user@internal-incoming,600,${TRANSFER_OPTIONS}Kg)'.PHP_EOL;
-                $conf .= '    same => n,Hangup()'.PHP_EOL;
+                $conf .= '    same => n,Hangup()'.PHP_EOL.PHP_EOL;
+
+                $extensionData = ConfigureAsterisk::getPbxNumbers();
+                $conf .= '[all-outgoing-'.$trunk['id'].'-custom]'.PHP_EOL;
+                foreach ($extensionData as $number => $mobile){
+                    $conf .= "exten => _.X!/$number,1,Dial(PJSIP/$trunk[id]/sip:".'${EXTEN}'."@127.0.0.1:$settings->sipPort,600,Tt)".PHP_EOL;
+                }
+                $conf .= 'exten => _.X!,2,Hangup()'.PHP_EOL;
             }
         }
         return $conf;

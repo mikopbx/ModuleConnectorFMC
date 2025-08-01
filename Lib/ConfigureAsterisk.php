@@ -161,6 +161,11 @@ class ConfigureAsterisk
                     $extensionsConf.= "exten => _X".$shotMobile.",1,Dial(PJSIP/{$provider['endpoint']}/sip:$number@127.0.0.1:$sipPort,600,Tt)".PHP_EOL;
                     $extensionsConf.= "exten => $number,1,Goto(dial-to-fmc-".$provider['endpoint'].",\${EXTEN},1)".PHP_EOL.PHP_EOL;
 
+                    $extensionsConf.= "; For outgoing from FMC to all PSTN".PHP_EOL;
+                    $extensionsConf.= "exten => _XXXXX!/_$number,1,NoOp()".PHP_EOL;
+                    $extensionsConf.= '    same => n,GosubIf($["${DIALPLAN_EXISTS(users-extensions-'.$provider['endpoint'].',${CALLERID(num)},1)}" == "1"]?users-extensions-'.$provider['endpoint'].',${CALLERID(num)},1)'.PHP_EOL;
+                    $extensionsConf.= '    same => n,Dial(PJSIP/${EXTEN}@'.$provider['endpoint'].',,f(${MOBILE} <${MOBILE}\;cpc=MT_FMC>)rTtb(create_chan_set_diversion-'.$provider['endpoint'].',s,1)U(dial_answer))'.PHP_EOL;
+
                     $userExtensions.= "exten => $number,1,Set(__MOBILE=$mobile)".PHP_EOL;
                 }
                 $userExtensions.= 'exten => _X!,2,return'.PHP_EOL.PHP_EOL;
@@ -170,7 +175,7 @@ class ConfigureAsterisk
                 $extensionsConf .= '    same => n,GosubIf($["${DIALPLAN_EXISTS(users-extensions-'.$provider['endpoint'].',${EXTEN},1)}" == "1"]?users-extensions-'.$provider['endpoint'].',${EXTEN},1)'.PHP_EOL;
                 $extensionsConf .= '    same => n,ExecIf($["${MOBILE}x" = "x"]?hangup)'.PHP_EOL;
                 $extensionsConf .= '    same => n,Playback(silence/1,noanswer)'.PHP_EOL;
-                $extensionsConf .= '    same => n,Set(TMP_CID=${CALLERID(num))'.PHP_EOL;
+                $extensionsConf .= '    same => n,Set(TMP_CID=${CALLERID(num)})'.PHP_EOL;
                 $extensionsConf .= '    same => n,ExecIf($[${LEN(${TMP_CID})} < 5]?Set(TMP_CID=${MOBILE}*B${TMP_CID}))  '.PHP_EOL;
                 $extensionsConf .= '    same => n,Dial(PJSIP/${MOBILE}@'.$provider['endpoint'].',,f(${TMP_CID} <${TMP_CID}\;cpc=MT_FMC>)rTtb(create_chan_set_diversion-'.$provider['endpoint'].',s,1)U(dial_answer))'.PHP_EOL;
                 $extensionsConf .= '    same => n,hangup()'.PHP_EOL;
