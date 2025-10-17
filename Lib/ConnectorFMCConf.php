@@ -84,13 +84,21 @@ class ConnectorFMCConf extends ConfigClass
                 $conf .= '    same => n,Set(M_TIMEOUT=600)'.PHP_EOL;
                 $conf .= '    same => n,Progress()'.PHP_EOL;
                 $conf .= '    same => n,Playback(silence/1,noanswer)'.PHP_EOL;
+                $conf .= '	  same => n,GosubIf($["${DIALPLAN_EXISTS('.$trunk['id'].'-find-did-incoming'.',${EXTEN},1)}" == "1"]?'.$trunk['id'].'-find-did-incoming'.',${EXTEN},1) '.PHP_EOL;
                 $conf .= '    same => n,Dial(Local/did2user@internal-incoming,600,${TRANSFER_OPTIONS}Kg)'.PHP_EOL;
                 $conf .= '    same => n,Hangup()'.PHP_EOL.PHP_EOL;
 
                 $extensionData = ConfigureAsterisk::getPbxNumbers();
+                $conf .= '['.$trunk['id'].'-find-did-incoming]'.PHP_EOL;
+                foreach ($extensionData as $number => $mobile){
+                    $conf .= "exten => $number,1,NoOp(--- Incoming call ---)".PHP_EOL;
+                    $conf .= '	same => n,GotoIf($["${DIALPLAN_EXISTS(none-incoming,'.$mobile.',1)}" == "1"]?none-incoming,'.$mobile.',1) '.PHP_EOL;
+                    $conf .= '	same => n,return'.PHP_EOL;
+                }
+
                 $conf .= '[all-outgoing-'.$trunk['id'].'-custom]'.PHP_EOL;
                 foreach ($extensionData as $number => $mobile){
-                    $conf .= "exten => _.X!/$number,1,Dial(PJSIP/$trunk[id]/sip:".'${EXTEN}'."@127.0.0.1:$settings->sipPort,600,Tt)".PHP_EOL;
+                    $conf .= "exten => _.X!/$number,1,Dial(PJSIP/$trunk[id]/sip:".'${EXTEN}'."@127.0.0.1:$settings->sipPort,600,TKU(dial_answer)b(dial_create_chan,s,1))".PHP_EOL;
                 }
                 $conf .= 'exten => _.X!,2,Hangup()'.PHP_EOL;
             }
