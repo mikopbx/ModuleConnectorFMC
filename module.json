@@ -4,6 +4,11 @@
   "support_email": "help@miko.ru",
   "version": "%ModuleVersion%",
   "min_pbx_version": "2024.1.114",
+  "release_settings": {
+    "publish_release": true,
+    "changelog_enabled": true,
+    "create_github_release": true
+  },
   "lic_product_id": 198,
   "lic_feature_id": 56
 }
