@@ -82,6 +82,7 @@ class ConnectorFMCConf extends ConfigClass
                 $conf .= '    same => n,Set(__M_CALLID=${CHANNEL(callid)})'.PHP_EOL;
                 $conf .= '    same => n,Set(__TRANSFER_OPTIONS=t)'.PHP_EOL;
                 $conf .= '    same => n,Set(M_TIMEOUT=600)'.PHP_EOL;
+                $conf .= '    same => n,ExecIf($["${CHANNEL(channeltype)}" != "Local"]?Gosub(set_from_peer,s,1))' . PHP_EOL;
                 $conf .= '    same => n,Progress()'.PHP_EOL;
                 $conf .= '    same => n,Playback(silence/1,noanswer)'.PHP_EOL;
                 $conf .= '	  same => n,GosubIf($["${DIALPLAN_EXISTS('.$trunk['id'].'-find-did-incoming'.',${EXTEN},1)}" == "1"]?'.$trunk['id'].'-find-did-incoming'.',${EXTEN},1) '.PHP_EOL;
