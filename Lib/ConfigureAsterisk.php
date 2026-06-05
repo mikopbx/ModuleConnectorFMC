@@ -152,9 +152,16 @@ class ConfigureAsterisk
             }elseif (intval($provider['providerType']) === TrunksFMC::PROVIDER_TYPE_MCN){
                 $sipPort= PbxSettings::getValueByKey('SIPPort');
 
+                // Маршруты FMC создаём только для сотрудников, реально подключённых к FMC данного провайдера.
+                // Иначе мобильный номер обычного сотрудника ошибочно трактуется как FMC-SIM и
+                // звонок на него заворачивается на внутренний номер вместо выхода в город.
+                $fmcExtensions = array_filter(explode(',', (string)$provider['extensions']));
                 $extensionData = ConfigureAsterisk::getPbxNumbers();
                 $userExtensions.= '[users-extensions-'.$provider['endpoint'].']'.PHP_EOL;
                 foreach ($extensionData as $number => $mobile){
+                    if(!in_array((string)$number, $fmcExtensions, true)){
+                        continue;
+                    }
                     $shotMobile = substr($mobile, -10);
                     $extensionsConf.= "; For exten: $number mobile: $mobile".PHP_EOL;
                     $extensionsConf.= "exten => _X!/_X".$shotMobile.",1,Dial(PJSIP/\${EXTEN}@$number,600,Tt)".PHP_EOL;
