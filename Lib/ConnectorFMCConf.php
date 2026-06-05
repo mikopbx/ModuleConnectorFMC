@@ -62,7 +62,7 @@ class ConnectorFMCConf extends ConfigClass
         if(!$settings){
             return '';
         }
-        $trunks = TrunksFMC::find(['columns' => 'outputEndpoint AS id,providerType'])->toArray();
+        $trunks = TrunksFMC::find(['columns' => 'outputEndpoint AS id,providerType,extensions'])->toArray();
         foreach ($trunks as $trunk){
             if(intval($trunk['providerType']) === TrunksFMC::PROVIDER_TYPE_B24){
                 $conf.= '['.$trunk['id'].'-incoming]'.PHP_EOL.
@@ -89,7 +89,15 @@ class ConnectorFMCConf extends ConfigClass
                 $conf .= '    same => n,Dial(Local/did2user@internal-incoming,600,${TRANSFER_OPTIONS}Kg)'.PHP_EOL;
                 $conf .= '    same => n,Hangup()'.PHP_EOL.PHP_EOL;
 
-                $extensionData = ConfigureAsterisk::getPbxNumbers();
+                // Только сотрудники, реально подключённые к FMC данного провайдера (см. ConfigureAsterisk::makeExtensions).
+                $fmcExtensions = array_filter(explode(',', (string)$trunk['extensions']));
+                $extensionData = array_filter(
+                    ConfigureAsterisk::getPbxNumbers(),
+                    static function ($number) use ($fmcExtensions) {
+                        return in_array((string)$number, $fmcExtensions, true);
+                    },
+                    ARRAY_FILTER_USE_KEY
+                );
                 $conf .= '['.$trunk['id'].'-find-did-incoming]'.PHP_EOL;
                 foreach ($extensionData as $number => $mobile){
                     $conf .= "exten => $number,1,NoOp(--- Incoming call ---)".PHP_EOL;
