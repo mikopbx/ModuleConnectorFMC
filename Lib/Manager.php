@@ -43,8 +43,8 @@ class Manager extends AsteriskManager
     ): bool
     {
         $connected = parent::connect($server, $username, $secret, $events);
-        if ($connected) {
-            $this->setSocketTimeout(1);
+        if ($connected && is_resource($this->socket)) {
+            stream_set_timeout($this->socket, 1);
         }
 
         return $connected;
