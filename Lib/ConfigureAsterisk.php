@@ -152,6 +152,12 @@ class ConfigureAsterisk
             }elseif (intval($provider['providerType']) === TrunksFMC::PROVIDER_TYPE_MCN){
                 $sipPort= PbxSettings::getValueByKey('SIPPort');
 
+                // На новой инфраструктуре MCN (siptrunk.mcn.ru) параметр cpc=MT_FMC в заголовке From
+                // приводит к отклонению вызовов. На этом хосте тег не добавляем, на остальных — оставляем.
+                $cpcTag = (strtolower(trim((string)$provider['host'])) === 'siptrunk.mcn.ru')
+                    ? ''
+                    : '\;cpc=MT_FMC';
+
                 // Маршруты FMC создаём только для сотрудников, реально подключённых к FMC данного провайдера.
                 // Иначе мобильный номер обычного сотрудника ошибочно трактуется как FMC-SIM и
                 // звонок на него заворачивается на внутренний номер вместо выхода в город.
@@ -171,7 +177,7 @@ class ConfigureAsterisk
                     $extensionsConf.= "; For outgoing from FMC to all PSTN".PHP_EOL;
                     $extensionsConf.= "exten => _XXXXX!/_$number,1,NoOp()".PHP_EOL;
                     $extensionsConf.= '    same => n,GosubIf($["${DIALPLAN_EXISTS(users-extensions-'.$provider['endpoint'].',${CALLERID(num)},1)}" == "1"]?users-extensions-'.$provider['endpoint'].',${CALLERID(num)},1)'.PHP_EOL;
-                    $extensionsConf.= '    same => n,Dial(PJSIP/${EXTEN}@'.$provider['endpoint'].',,f(${MOBILE} <${MOBILE}\;cpc=MT_FMC>)rTtb(create_chan_set_diversion-'.$provider['endpoint'].',s,1)U(dial_answer))'.PHP_EOL;
+                    $extensionsConf.= '    same => n,Dial(PJSIP/${EXTEN}@'.$provider['endpoint'].',,f(${MOBILE} <${MOBILE}'.$cpcTag.'>)rTtb(create_chan_set_diversion-'.$provider['endpoint'].',s,1)U(dial_answer))'.PHP_EOL;
 
                     $userExtensions.= "exten => $number,1,Set(__MOBILE=$mobile)".PHP_EOL;
                 }
@@ -184,7 +190,7 @@ class ConfigureAsterisk
                 $extensionsConf .= '    same => n,Playback(silence/1,noanswer)'.PHP_EOL;
                 $extensionsConf .= '    same => n,Set(TMP_CID=${CALLERID(num)})'.PHP_EOL;
                 $extensionsConf .= '    same => n,ExecIf($[${LEN(${TMP_CID})} < 5]?Set(TMP_CID=${MOBILE}*B${TMP_CID}))  '.PHP_EOL;
-                $extensionsConf .= '    same => n,Dial(PJSIP/${MOBILE}@'.$provider['endpoint'].',,f(${TMP_CID} <${TMP_CID}\;cpc=MT_FMC>)rTtb(create_chan_set_diversion-'.$provider['endpoint'].',s,1)U(dial_answer))'.PHP_EOL;
+                $extensionsConf .= '    same => n,Dial(PJSIP/${MOBILE}@'.$provider['endpoint'].',,f(${TMP_CID} <${TMP_CID}'.$cpcTag.'>)rTtb(create_chan_set_diversion-'.$provider['endpoint'].',s,1)U(dial_answer))'.PHP_EOL;
                 $extensionsConf .= '    same => n,hangup()'.PHP_EOL;
                 $extensionsConf .= PHP_EOL;
                 $extensionsConf .= '[create_chan_set_diversion-'.$provider['endpoint'].']'.PHP_EOL;
